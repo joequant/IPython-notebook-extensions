@@ -7,7 +7,7 @@ cache:
   - '%LOCALAPPDATA%\pip\Cache'
 environment:
   COVERALLS_REPO_TOKEN:
-    secure: vTJ+1pZImRjZSGK9EPW1AHiSbB4TSUy24ebsdTtk4syvYTey2cjc+KXe3rnBc9EK
+    secure: lFyaxdbvCvXKM+PjmN9FToU8DhsdS474RgaW/bNAu4IBnn7QbfZzDYrjKw33V6Oo
   matrix:
 
     - TOXENV: 'py27-notebook'
@@ -34,13 +34,31 @@ environment:
       PYTHON_VERSION: '3.4'
       PYTHON_ARCH: '32'
 
+    - TOXENV: 'py34-notebook42'
+      TOXPYTHON: C:\Python34\python.exe
+      PYTHON_HOME: C:\Python34
+      PYTHON_VERSION: '3.4'
+      PYTHON_ARCH: '32'
+    
+    - TOXENV: 'py34-notebook43'
+      TOXPYTHON: C:\Python34\python.exe
+      PYTHON_HOME: C:\Python34
+      PYTHON_VERSION: '3.4'
+      PYTHON_ARCH: '32'
+    
+    - TOXENV: 'py34-notebook44'
+      TOXPYTHON: C:\Python34\python.exe
+      PYTHON_HOME: C:\Python34
+      PYTHON_VERSION: '3.4'
+      PYTHON_ARCH: '32'
+
     - TOXENV: 'py34-notebook4x'
       TOXPYTHON: C:\Python34\python.exe
       PYTHON_HOME: C:\Python34
       PYTHON_VERSION: '3.4'
       PYTHON_ARCH: '32'
 
-    - TOXENV: 'py35-notebook,codecov'
+    - TOXENV: 'py35-notebook'
       TOXPYTHON: C:\Python35\python.exe
       PYTHON_HOME: C:\Python35
       PYTHON_VERSION: '3.5'
@@ -68,7 +86,7 @@ test_script:
   - '%PYTHON_HOME%\Scripts\tox -e %TOXENV%'
 
 on_success:
-  - '%PYTHON_HOME%\Scripts\tox -e codecov'
+  - cmd: '%PYTHON_HOME%\Scripts\tox -e codecov || (echo "codecov failed :(" && cmd /c "exit /b 0")'
 on_failure:
   - ps: $($env:COVERALLS_REPO_TOKEN = '')
   - ps: dir "env:"

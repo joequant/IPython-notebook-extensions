@@ -29,25 +29,30 @@ Contains a collection of extensions that add functionality to the Jupyter
 notebook. These extensions are mostly written in Javascript, and are loaded
 locally in the browser.
 
-The jupyter-contrib repository
-https://github.com/jupyter-contrib/jupyter_contrib_nbextensions
+Read
+`the documentation <https://jupyter-contrib-nbextensions.readthedocs.io>`_
+for more information.
+
+The
+`jupyter-contrib repository <https://github.com/ipython-contrib/jupyter_contrib_nbextensions>`_
 is maintained independently by a group of users and developers, and is not
 officially related to the Jupyter development team.
 
-The maturity of the provided extensions varies, please create an issue if you
-encounter any problems.
-""",
-        version='0.0.0',
-        author='jupyter-contrib developers',
+The maturity of the provided extensions varies, so please check
+`the repository issues page <https://github.com/ipython-contrib/jupyter_contrib_nbextensions/issues>`_
+if you encounter any problems, and create a new issue if needed!
+""",  # noqa: E501
+        version='0.3.1',
+        author='ipython-contrib and jupyter-contrib developers',
         author_email='jupytercontrib@gmail.com',
         url=('https://github.com/'
-             'ipython-contrib/IPython-contebook-extensions.git'),
+             'ipython-contrib/jupyter_contrib_nbextensions.git'),
         download_url=('https://github.com/'
-                      'ipython-contrib/IPython-contebook-extensions'
-                      'tarball/0.0.0'),
+                      'ipython-contrib/jupyter_contrib_nbextensions'
+                      '/tarball/0.3.1'),
         keywords=['IPython', 'Jupyter', 'notebook'],
         license='BSD',
-        platform=['Any'],
+        platforms=['Any'],
         packages=find_packages('src'),
         package_dir={'': 'src'},
         include_package_data=True,
@@ -57,15 +62,16 @@ encounter any problems.
         ],
         install_requires=[
             'ipython_genutils',
-            'jupyter_contrib_core >=0.3',
+            'jupyter_contrib_core >=0.3.3',
             'jupyter_core',
-            'jupyter_nbextensions_configurator',
-            'nbconvert',
+            'jupyter_highlight_selected_word >=0.0.10',
+            'jupyter_latex_envs >=1.3.8',
+            'jupyter_nbextensions_configurator >=0.2.6',
+            'nbconvert >=4.2',
             'notebook >=4.0',
-            'psutil >=2.2.1',
             'pyyaml',
             'tornado',
-            'traitlets',
+            'traitlets >=4.1',
         ],
         extras_require={
             'test': [
@@ -83,10 +89,16 @@ encounter any problems.
         zip_safe=False,
         entry_points={
             'console_scripts': [
-                'jupyter-contrib-nbextension = jupyter_contrib_nbextensions.application:main',  # noqa
+                'jupyter-contrib-nbextension = jupyter_contrib_nbextensions.application:main',  # noqa: E501
             ],
             'jupyter_contrib_core.app.subcommands': [
-                'nbextension = jupyter_contrib_nbextensions.application:jupyter_contrib_core_app_subcommands',  # noqa
+                'nbextension = jupyter_contrib_nbextensions.application:jupyter_contrib_core_app_subcommands',  # noqa: E501
+            ],
+            'nbconvert.exporters': [
+                'html_toc = jupyter_contrib_nbextensions.nbconvert_support.toc2:TocExporter',  # noqa: E501
+                'selectLanguage = jupyter_contrib_nbextensions.nbconvert_support.nbTranslate:NotebookLangExporter',  # noqa: E501
+                'html_embed = jupyter_contrib_nbextensions.nbconvert_support.embedhtml:EmbedHTMLExporter',  # noqa: E501
+                'html_ch = jupyter_contrib_nbextensions.nbconvert_support.collapsible_headings:ExporterCollapsibleHeadings',  # noqa: E501
             ],
         },
         scripts=[os.path.join('scripts', p) for p in [
@@ -104,6 +116,7 @@ encounter any problems.
             'Topic :: Utilities',
         ],
     )
+
 
 if __name__ == '__main__':
     main()

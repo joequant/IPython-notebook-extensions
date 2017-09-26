@@ -1,10 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 Preprocessor to convert svg graphics embedded in markdown to PDF.
-
-This preprocessor converts svg graphics embedded in markdown as
-'![My graphic](graphics.svg)'
-to PDF using Inkscape
 """
 
 import errno
@@ -26,7 +22,12 @@ except ImportError:
 
 
 def get_inkscape_executable_path():
-    """Return the path of the system inkscape exectuable."""
+    """
+    Return the path of the system inkscape_ exectuable.
+
+    .. _inkscape: https://inkscape.org/en
+
+    """
     inkscape = which('inkscape')
     if inkscape is not None:
         return inkscape
@@ -55,7 +56,25 @@ def get_inkscape_executable_path():
 
 
 class SVG2PDFPreprocessor(Preprocessor):
-    """Preprocessor to convert svg graphics embedded in markdown to PDF."""
+    """
+    Preprocessor to convert svg graphics embedded in notebook markdown to PDF.
+    Example for a markdown cell image::
+
+        ![My graphic](graphics.svg)
+
+    Because LaTeX can't use SVG graphics, they are converted to PDF using
+    inkscape_. This preprocessor is for SVG graphics in markdown only. For SVG
+    outputs from codecells, there is already the built-in nbconvert
+    preprocessor.
+
+    Configuration::
+
+        c.Exporter.preprocessors.append(
+            "jupyter_contrib_nbextensions.nbconvert_support.SVG2PDFPreprocessor"
+        )
+
+    .. _inkscape: https://inkscape.org/en
+    """  # noqa: E501
 
     def _from_format_default(self):
         return 'image/svg+xml'
@@ -122,17 +141,17 @@ class SVG2PDFPreprocessor(Preprocessor):
 
     def replfunc(self, match):
         """
-        Replace svg image with pdf.
+        Transform a regex match for an svg image into a markdown pdf image tag.
 
         Parameters
         ----------
-        match: Regex match object
-            Markdown image tags with svg images
+        match : re.MatchObject
+            Match object containing the markdown image tag with svg images
 
         Returns
         -------
-        img: string
-            New markdown image tag with pdf image
+        str
+            New markdown image tag using the converted-to-pdf image
         """
         url = match.group(2) + '.svg'
         if url.startswith('http'):
@@ -166,7 +185,8 @@ class SVG2PDFPreprocessor(Preprocessor):
             Additional resources used in the conversion process.  Allows
             preprocessors to pass variables into the Jinja engine.
         index : int
-            Index of the cell being processed (see base.py)
+            Index of the cell being processed (see
+            nbconvert.preprocessors.base for details)
         """
         self.output_files_dir = resources.get('output_files_dir', None)
         if (cell.cell_type == 'markdown' and

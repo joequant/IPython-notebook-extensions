@@ -1,5 +1,5 @@
-Description
-===========
+Execute Time
+============
 
 This extension displays when the last execution of a code cell occurred, and
 how long it took.
@@ -29,8 +29,115 @@ currently shown (hidden).
 ![](execution-timings-menu.png)
 
 
+Options
+-------
+
+The nbextension offers a few options for how to display and interpret
+timestamps.
+Options are stored in the `notebook` section of the server's nbconfig, under
+the key `ExecuteTime`.
+The easiest way to configure these is using the
+[jupyter_nbextensions_configurator](https://github.com/Jupyter-contrib/jupyter_nbextensions_configurator),
+which if you got this nbextension in the usual way from
+[jupyter_contrib_nbextensions](https://github.com/ipython-contrib/jupyter_contrib_nbextensions),
+should also have been installed.
+
+Alternatively, you can also configure them directly with a few lines of python.
+For example, to alter the displayed message, use relative timestamps,
+and set them to update every 5 seconds, we can use the following python
+snippet:
+
+```python
+from notebook.services.config import ConfigManager
+ConfigManager().update('notebook', {'ExecuteTime': {
+   	'display_absolute_timestamps': False,
+    'relative_timing_update_period': 5,
+    'template': {
+    	'executed': 'started ${start_time}, finished in ${duration}',
+    }
+}})
+```
+
+The available options are:
+
+* `ExecuteTime.clear_timings_on_clear_output`: When cells' outputs are cleared,
+  also clear their timing data, e.g. when using the
+  `Kernel > Restart & Clear Output` menu item
+
+* `ExecuteTime.clear_timings_on_kernel_restart`: Clear all cells' execution
+  timing data on any kernel restart event
+
+* `ExecuteTime.display_absolute_timings`: Display absolute timings for the
+  start/end time of execution. Setting this `false` will result in the display
+  of a relative timestamp like 'a few seconds ago' (see the moment.js function
+  [fromNow](https://momentjs.com/docs/#/displaying/fromnow/)
+  for details). Defaults to `true`.
+
+* `ExecuteTime.display_absolute_format`: The format to use when displaying
+  absolute timings (see `ExecuteTime.display_absolute_timings`, above).
+  See the moment.js function
+  [format](https://momentjs.com/docs/#/displaying/format/)
+  for details of the template tokens available.
+  Defaults to `'YYYY-MM-DD HH:mm:ss'`.
+
+* `ExecuteTime.relative_timing_update_period`: Seconds to wait between updating
+  the relative timestamps, if using them (see
+  `ExecuteTime.display_absolute_timings`, above).
+  Defaults to `10`.
+
+* `ExecuteTime.display_in_utc`: Display times in UTC, rather than in the local
+  timezone set by the browser.
+  Defaults to `false`.
+
+* `ExecuteTime.default_kernel_to_utc`: For kernel timestamps which do not
+  specify a timezone, assume UTC.
+  Defaults to `true`.
+
+* `ExecuteTime.display_right_aligned`: Right-align the text in the timing area
+  under each cell.
+  Defaults to `false`.
+
+* `ExecuteTime.highlight.use`: Highlight the displayed execution time on
+  completion of execution.
+  Defaults to `true`.
+
+* `ExecuteTime.highlight.color`: Color to use for highlighting the displayed
+  execution time.
+  Defaults to `'#00BB00'`.
+
+* `ExecuteTime.template.executed`: Template for the timing message for executed
+  cells. See readme for     replacement tokens.
+  Defaults to `'executed in ${duration}, finished ${end_time}'`.
+
+* `ExecuteTime.template.queued`: Template for the timing message for queued
+  cells. The template uses an ES2015-like syntax, but replaces only the exact
+  strings `${start_time}`, plus (if defined) `${end_time}` and `${duration}`.
+  Defaults to `'execution queued ${start_time}'`.
+
+
+
 Limitations
-===========
+-----------
+
+
+### timezones
+
+As discussed in
+[ipython-contrib/jupyter_contrib_nbextensions#549](https://github.com/ipython-contrib/jupyter_contrib_nbextensions/issues/549),
+[ipython-contrib/jupyter_contrib_nbextensions#904](https://github.com/ipython-contrib/jupyter_contrib_nbextensions/issues/904),
+and
+[jupyter/jupyter_client#143](https://github.com/jupyter/jupyter_client/issues/143),
+although they are (now) supposed to, Jupyter kernels don't always specify a
+timezone for their timestamps, which can cause problems when the
+[moment.js](http://momentjs.com/)
+library assumes the local timezone, rather than UTC, which is what most kernels
+are actually using.
+To help to address this, see the [options](#Options) above, which can be used
+ to assume UTC for unzoned timestamps.
+
+
+### execution queues
+
 For a reason I don't understand, when multiple cells are queued for execution,
 the kernel doesn't send a reply immediately after finishing executing each
 cell.
@@ -46,19 +153,18 @@ but they may get displayed later due to this kernel issue.
 
 
 Installation
-============
+------------
 
-Install the master version of the IPython-notebook-extensions repository as
-explained in the
-[readme](https://github.com/ipython-contrib/IPython-notebook-extensions#installation)
-or in the
-[wiki](https://github.com/ipython-contrib/IPython-notebook-extensions/wiki/).
+Install the master version of the jupyter_contrib_nbextensions repository as
+explained in the docs at
+[jupyter-contrib-nbextensions.readthedocs.io](https://jupyter-contrib-nbextensions.readthedocs.io/en/latest/install.html).
 
-Then you can use the `/nbextensions` config page to enable/disable this
-extension for all notebooks.
+Then you can use the
+[jupyter_nbextensions_configurator](https://github.com/Jupyter-contrib/jupyter_nbextensions_configurator)
+to enable/disable this extension for all notebooks.
 
 Internals
-=========
+---------
 
 The execution start and end times are stored in the cell metadata as ISO8601
 strings, for example:

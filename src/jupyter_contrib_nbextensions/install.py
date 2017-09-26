@@ -8,8 +8,13 @@ from __future__ import (
 import errno
 import os
 
-import psutil
-from jupyter_contrib_core.notebook_compat import nbextensions, serverextensions
+import jupyter_highlight_selected_word
+import latex_envs
+from jupyter_contrib_core.notebook_compat import nbextensions
+from jupyter_nbextensions_configurator.application import (
+    EnableJupyterNbextensionsConfiguratorApp,
+)
+from notebook.notebookapp import list_running_servers
 from traitlets.config import Config
 from traitlets.config.manager import BaseJSONConfigManager
 
@@ -20,64 +25,96 @@ class NotebookRunningError(Exception):
     pass
 
 
-def notebook_is_running():
+def notebook_is_running(runtime_dir=None):
     """Return true if a notebook process appears to be running."""
-    for p in psutil.process_iter():
-        # p.name() can throw exceptions due to zombie processes on Mac OS X, so
-        # ignore psutil.ZombieProcess
-        # (See https://code.google.com/p/psutil/issues/detail?id=428)
-
-        # It isn't enough to search just the process name, we have to
-        # search the process command to see if jupyter-notebook is running.
-
-        # Checking the process command can cause an AccessDenied exception to
-        # be thrown for system owned processes, ignore those as well
-        try:
-            # use lower, since python may be Python, e.g. on OSX
-            if ('python' or 'jupyter') in p.name().lower():
-                for arg in p.cmdline():
-                    # the missing k is deliberate!
-                    # The usual string 'jupyter-notebook' can get truncated.
-                    if 'jupyter-noteboo' in arg:
-                        return True
-        except (psutil.ZombieProcess, psutil.AccessDenied):
-            pass
+    try:
+        return bool(next(list_running_servers(runtime_dir=runtime_dir)))
+    except StopIteration:
         return False
 
 
 def toggle_install(install, user=False, sys_prefix=False, overwrite=False,
                    symlink=False, prefix=None, nbextensions_dir=None,
-                   logger=None):
-    """Install or remove all jupyter_contrib_nbextensions."""
-    if notebook_is_running():
+                   logger=None, skip_running_check=False):
+    """Install or remove all jupyter_contrib_nbextensions files & config."""
+    if not skip_running_check and notebook_is_running():
         raise NotebookRunningError(
             'Cannot configure while the Jupyter notebook server is running')
+    _check_conflicting_kwargs(user=user, sys_prefix=sys_prefix, prefix=prefix,
+                              nbextensions_dir=nbextensions_dir)
+    toggle_install_files(
+        install, user=user, sys_prefix=sys_prefix, overwrite=overwrite,
+        symlink=symlink, prefix=prefix, nbextensions_dir=nbextensions_dir,
+        logger=logger, skip_running_check=skip_running_check)
+    toggle_install_config(
+        install, user=user, sys_prefix=sys_prefix, logger=logger,
+        skip_running_check=skip_running_check)
 
-    user = False if sys_prefix else user
-    config_dir = nbextensions._get_config_dir(user=user, sys_prefix=sys_prefix)
 
-    verb = 'Installing' if install else 'Uninstalling'
+def toggle_install_files(install, user=False, sys_prefix=False, logger=None,
+                         overwrite=False, symlink=False, prefix=None,
+                         nbextensions_dir=None, skip_running_check=False):
+    """Install/remove jupyter_contrib_nbextensions files."""
+    if not skip_running_check and notebook_is_running():
+        raise NotebookRunningError(
+            'Cannot configure while the Jupyter notebook server is running')
+    kwargs = dict(user=user, sys_prefix=sys_prefix, prefix=prefix,
+                  nbextensions_dir=nbextensions_dir)
+    _check_conflicting_kwargs(**kwargs)
+    kwargs['logger'] = logger
     if logger:
         logger.info(
-            '{} jupyter_contrib_nbextensions, using config in {}'.format(
-                verb, config_dir))
+            '{} jupyter_contrib_nbextensions nbextension files {} {}'.format(
+                'Installing' if install else 'Uninstalling',
+                'to' if install else 'from',
+                'jupyter data directory'))
+    component_nbext_packages = [
+        jupyter_contrib_nbextensions,
+        jupyter_highlight_selected_word,
+        latex_envs,
+    ]
+    for mod in component_nbext_packages:
+        if install:
+            nbextensions.install_nbextension_python(
+                mod.__name__, overwrite=overwrite, symlink=symlink, **kwargs)
+        else:
+            nbextensions.uninstall_nbextension_python(mod.__name__, **kwargs)
+
+
+def toggle_install_config(install, user=False, sys_prefix=False,
+                          skip_running_check=False, logger=None):
+    """Install/remove contrib nbextensions to/from jupyter_nbconvert_config."""
+    if not skip_running_check and notebook_is_running():
+        raise NotebookRunningError(
+            'Cannot configure while the Jupyter notebook server is running')
+    _check_conflicting_kwargs(user=user, sys_prefix=sys_prefix)
+    config_dir = nbextensions._get_config_dir(user=user, sys_prefix=sys_prefix)
+    if logger:
+        logger.info(
+            '{} jupyter_contrib_nbextensions items {} config in {}'.format(
+                'Installing' if install else 'Uninstalling',
+                'to' if install else 'from',
+                config_dir))
 
     # Configure the jupyter_nbextensions_configurator serverextension to load
     if install:
-        serverextensions.toggle_serverextension_python(
-            'jupyter_nbextensions_configurator',
-            enabled=True, user=user, sys_prefix=sys_prefix, logger=logger)
-
-    # nbextensions:
-    kwargs = dict(user=user, sys_prefix=sys_prefix, prefix=prefix,
-                  nbextensions_dir=nbextensions_dir, logger=logger)
-    if install:
-        nbextensions.install_nbextension_python(
-            jupyter_contrib_nbextensions.__name__,
-            overwrite=overwrite, symlink=symlink, **kwargs)
+        configurator_app = EnableJupyterNbextensionsConfiguratorApp(
+            user=user, sys_prefix=sys_prefix, logger=logger)
+        configurator_app.start()
+        nbextensions.enable_nbextension(
+            'notebook', 'contrib_nbextensions_help_item/main',
+            user=user, sys_prefix=sys_prefix, logger=logger)
     else:
-        nbextensions.uninstall_nbextension_python(
-            jupyter_contrib_nbextensions.__name__, **kwargs)
+        nbconf_cm = BaseJSONConfigManager(
+            config_dir=os.path.join(config_dir, 'nbconfig'))
+        for require, section in {
+                'contrib_nbextensions_help_item/main': 'notebook'}.items():
+            if logger:
+                logger.info('- Disabling {}'.format(require))
+                logger.info(
+                    '--  Editing config: {}'.format(
+                        nbconf_cm.file_name(section)))
+            nbconf_cm.update(section, {'load_extensions': {require: None}})
 
     # Set extra template path, pre- and post-processors for nbconvert
     cm = BaseJSONConfigManager(config_dir=config_dir)
@@ -105,20 +142,6 @@ def toggle_install(install, user=False, sys_prefix=False, overwrite=False,
         proc_mod + '.CodeFoldingPreprocessor',
         proc_mod + '.PyMarkdownPreprocessor',
     ], install)
-    # our postprocessor class
-    if logger:
-        logger.info('--  Configuring nbconvert postprocessor_class')
-    if install:
-        config.setdefault(
-            'NbConvertApp', Config())['postprocessor_class'] = (
-                proc_mod + '.EmbedPostProcessor')
-    else:
-        nbconvert_conf = config.get('NbConvertApp', Config())
-        if (nbconvert_conf.get('postprocessor_class') ==
-                proc_mod + '.EmbedPostProcessor'):
-            nbconvert_conf.pop('postprocessor_class')
-            if len(nbconvert_conf) < 1:
-                config.pop('NbConvertApp')
     if logger:
         logger.info(
             u'- Writing config: {}'.format(cm.file_name(config_basename)))
@@ -126,24 +149,36 @@ def toggle_install(install, user=False, sys_prefix=False, overwrite=False,
 
 
 def install(user=False, sys_prefix=False, prefix=None, nbextensions_dir=None,
-            logger=None, overwrite=False, symlink=False):
-    """Edit jupyter config files to use jupyter_contrib_nbextensions things."""
+            logger=None, overwrite=False, symlink=False,
+            skip_running_check=False):
+    """Install all jupyter_contrib_nbextensions files & config."""
     return toggle_install(
         True, user=user, sys_prefix=sys_prefix, prefix=prefix,
         nbextensions_dir=nbextensions_dir, logger=logger,
-        overwrite=overwrite, symlink=symlink)
+        overwrite=overwrite, symlink=symlink,
+        skip_running_check=skip_running_check)
 
 
 def uninstall(user=False, sys_prefix=False, prefix=None, nbextensions_dir=None,
-              logger=None):
-    """Edit jupyter config files to not use jupyter_contrib_nbextensions."""
+              logger=None, skip_running_check=False):
+    """Uninstall all jupyter_contrib_nbextensions files & config."""
     return toggle_install(
         False, user=user, sys_prefix=sys_prefix, prefix=prefix,
-        nbextensions_dir=nbextensions_dir, logger=logger)
+        nbextensions_dir=nbextensions_dir, logger=logger,
+        skip_running_check=skip_running_check)
 
 # -----------------------------------------------------------------------------
 # Private API
 # -----------------------------------------------------------------------------
+
+
+def _check_conflicting_kwargs(**kwargs):
+    if sum(map(bool, kwargs.values())) > 1:
+        raise nbextensions.ArgumentConflict(
+            "Cannot specify more than one of {}.\nBut recieved {}".format(
+                ', '.join(kwargs.keys()),
+                ', '.join(['{}={}'.format(k, v)
+                           for k, v in kwargs.items() if v])))
 
 
 def _set_managed_config(cm, config_basename, config, logger=None):

@@ -1,4 +1,4 @@
-"""Toc2 Exporter class"""
+"""Toc2 exporter class, TocExporter"""
 
 # -----------------------------------------------------------------------------
 # Copyright (c) 2016, the IPython IPython-Contrib Development Team.
@@ -14,19 +14,30 @@
 from nbconvert.exporters.html import HTMLExporter
 from traitlets.config import Config
 
+
 # -----------------------------------------------------------------------------
 # Classes
 # -----------------------------------------------------------------------------
 
 
 class TocExporter(HTMLExporter):
-    """Exports to an html document, embedding toc2 extension (.html)."""
+    """
+    :mod:`nbconvert` HTMLExporter which embeds the toc2 nbextension.
+
+    Export table of contents nbextension functionality to html. The idea is to
+    link a relevant part of the javascript nbextension and the css, and add a
+    small script in the html file.
+
+    Example usage::
+
+        jupyter nbconvert --to html_toc FILE.ipynb
+    """
 
     def _file_extension_default(self):
         return '.html'
 
     def _template_file_default(self):
-        return 'toc3'
+        return 'toc2'
 
     output_mimetype = 'text/html'
 
